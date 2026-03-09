@@ -114,9 +114,30 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadEntries() {
-      const response = await fetch("/api/entries", { cache: "no-store" });
-      const data = (await response.json()) as { entries: Entry[] };
-      setEntries(data.entries);
+      try {
+        const response = await fetch("/api/entries", { cache: "no-store" });
+        const data = (await response.json()) as {
+          entries?: Entry[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          setEntries([]);
+          setStatus({
+            type: "error",
+            message: data.error ?? "讀取好事日曆失敗，請稍後再試。",
+          });
+          return;
+        }
+
+        setEntries(Array.isArray(data.entries) ? data.entries : []);
+      } catch {
+        setEntries([]);
+        setStatus({
+          type: "error",
+          message: "讀取好事日曆失敗，請稍後再試。",
+        });
+      }
     }
 
     void loadEntries();
@@ -184,8 +205,9 @@ export default function HomePage() {
       }
 
       setEntries((currentEntries) => {
-        const exists = currentEntries.some((entry) => entry.id === data.entry?.id);
-        return exists ? currentEntries : [data.entry!, ...currentEntries];
+        const safeEntries = Array.isArray(currentEntries) ? currentEntries : [];
+        const exists = safeEntries.some((entry) => entry.id === data.entry?.id);
+        return exists ? safeEntries : [data.entry!, ...safeEntries];
       });
 
       setGoodDeed("");
