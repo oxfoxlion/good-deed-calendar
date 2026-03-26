@@ -20,12 +20,12 @@ export function ThemeToggle() {
     <Button
       type="button"
       variant="outline"
-      className="gap-2 rounded-full"
+      size="icon"
+      className="rounded-full"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "切換為淺色模式" : "切換為深色模式"}
     >
       {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-      <span>{isDark ? "Light" : "Dark"}</span>
     </Button>
   );
 }

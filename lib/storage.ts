@@ -1,5 +1,6 @@
 export type GoodDeedEntry = {
   id: string;
+  user_id?: string | null;
   nickname: string;
   content: string;
   date: string;
@@ -17,7 +18,7 @@ type CreateEntryResult = {
   notification: NotificationResult;
 };
 
-function getCalendarApiBaseUrl() {
+export function getCalendarApiBaseUrl() {
   const baseUrl = process.env.CALENDAR_API_BASE_URL;
   if (!baseUrl) {
     throw new Error("Missing CALENDAR_API_BASE_URL");
@@ -42,11 +43,15 @@ export async function listEntries() {
   return Array.isArray(data.entries) ? data.entries : [];
 }
 
-export async function addEntry(input: Pick<GoodDeedEntry, "nickname" | "content" | "date">) {
+export async function addEntry(
+  input: Pick<GoodDeedEntry, "nickname" | "content" | "date">,
+  options?: { cookieHeader?: string },
+) {
   const response = await fetch(`${getCalendarApiBaseUrl()}/good_calendar/entries`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(options?.cookieHeader ? { cookie: options.cookieHeader } : {}),
     },
     body: JSON.stringify(input),
     cache: "no-store",

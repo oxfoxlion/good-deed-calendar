@@ -27,9 +27,9 @@ export async function POST(request: Request) {
   const content = body.content?.trim();
   const date = body.date?.trim();
 
-  if (!nickname || nickname.length > 30) {
+  if (nickname && nickname.length > 10) {
     return NextResponse.json(
-      { error: "請輸入 1 到 30 字的暱稱。" },
+      { error: "請輸入 1 到 10 字的暱稱。" },
       { status: 400 },
     );
   }
@@ -49,7 +49,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { entry, created, notification } = await addEntry({ nickname, content, date });
+    const { entry, created, notification } = await addEntry(
+      { nickname: nickname ?? "", content, date },
+      { cookieHeader: request.headers.get("cookie") ?? "" },
+    );
     return NextResponse.json({ entry, created, notification });
   } catch (error) {
     const message = error instanceof Error ? error.message : "新增失敗，請稍後再試。";
