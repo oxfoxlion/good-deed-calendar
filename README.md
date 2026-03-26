@@ -6,7 +6,7 @@
 
 - 使用者可輸入暱稱作為日曆辨識
 - 介面採用 `components/ui` 結構，方便持續擴充 `shadcn` 風格元件
-- 支援深色與淺色模式切換，主題偏好會記錄在瀏覽器 localStorage
+- 支援深色與淺色模式切換，使用 `next-themes` 管理主題與 localStorage 偏好
 - 點擊日期即可新增當天紀錄
 - 提供週檢視與月檢視，方便快速瀏覽同週與整月資料
 - 新增後由 LineLanguageBot API 寫入資料庫，並透過 Discord Bot 發送通知到指定頻道
@@ -14,9 +14,9 @@
 ## 專案結構
 
 - `app/page.tsx`：首頁主介面，整合月曆、週曆、最新紀錄與新增表單
-- `components/ui/*`：手動整理的 `shadcn` 風格基礎元件，例如 `Button`、`Card`、`Input`、`Textarea`
-- `components/theme-provider.tsx`：管理 light / dark mode
-- `components/theme-toggle.tsx`：主題切換按鈕
+- `components/ui/*`：依 `shadcn` 慣例整理的基礎元件，例如 `Button`、`Card`、`Input`、`Textarea`
+- `components/theme-provider.tsx`：包裝 `next-themes` 的 ThemeProvider
+- `components/theme-toggle.tsx`：使用 `lucide-react` 的主題切換按鈕
 - `app/globals.css`：全域設計 token、色票與深淺色 CSS variables
 
 ## 啟動

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,11 +17,6 @@ type Entry = {
   content: string;
   date: string;
   created_at: string;
-};
-
-type ApiState = {
-  type: "idle" | "success" | "error";
-  message: string;
 };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -38,18 +34,6 @@ function monthLabel(date: Date) {
     year: "numeric",
     month: "long",
   }).format(date);
-}
-
-function weekLabel(date: Date) {
-  return new Intl.DateTimeFormat("zh-TW", {
-    month: "numeric",
-    day: "numeric",
-  }).format(date);
-}
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(year, month - 1, day);
 }
 
 function buildCalendarDays(currentMonth: Date) {
@@ -70,53 +54,18 @@ function buildCalendarDays(currentMonth: Date) {
   });
 }
 
-function buildWeekDays(anchorDate: Date) {
-  const weekday = (anchorDate.getDay() + 6) % 7;
-  const startDate = new Date(anchorDate);
-  startDate.setDate(anchorDate.getDate() - weekday);
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + index);
-    return {
-      date,
-      key: toDateKey(date),
-      isToday: toDateKey(date) === toDateKey(new Date()),
-    };
-  });
-}
-
-function StatusBanner({ status }: { status: ApiState }) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border px-4 py-3 text-sm",
-        status.type === "success" &&
-          "border-emerald-300/70 bg-emerald-500/10 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300",
-        status.type === "error" &&
-          "border-rose-300/70 bg-rose-500/10 text-rose-700 dark:border-rose-700 dark:text-rose-300",
-        status.type === "idle" &&
-          "border-border bg-secondary/70 text-muted-foreground",
-      )}
-    >
-      {status.message}
-    </div>
-  );
-}
-
 export default function HomePage() {
+  const calendarCardRef = useRef<HTMLDivElement | null>(null);
   const [nickname, setNickname] = useState("");
   const [goodDeed, setGoodDeed] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [weekAnchorDate, setWeekAnchorDate] = useState(() => new Date());
+  const [draftDate, setDraftDate] = useState(() => toDateKey(new Date()));
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [calendarCardHeight, setCalendarCardHeight] = useState<number | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
-  const [status, setStatus] = useState<ApiState>({
-    type: "idle",
-    message: "先輸入暱稱，再點日期開啟表單，填寫好事後送出。",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -142,52 +91,60 @@ export default function HomePage() {
 
         if (!response.ok) {
           setEntries([]);
-          setStatus({
-            type: "error",
-            message: data.error ?? "讀取好事日曆失敗，請稍後再試。",
-          });
           return;
         }
 
         setEntries(Array.isArray(data.entries) ? data.entries : []);
       } catch {
         setEntries([]);
-        setStatus({
-          type: "error",
-          message: "讀取好事日曆失敗，請稍後再試。",
-        });
       }
     }
 
     void loadEntries();
   }, []);
 
-  const calendarDays = buildCalendarDays(currentMonth);
-  const weekDays = buildWeekDays(selectedDate ? parseDateKey(selectedDate) : weekAnchorDate);
+  useEffect(() => {
+    const node = calendarCardRef.current;
+    if (!node) {
+      return;
+    }
 
+    const updateHeight = () => {
+      setCalendarCardHeight(node.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    observer.observe(node);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [entries.length, currentMonth, selectedDate]);
+
+  const calendarDays = buildCalendarDays(currentMonth);
   const entriesByDate = entries.reduce<Record<string, Entry[]>>((accumulator, entry) => {
     accumulator[entry.date] ??= [];
     accumulator[entry.date].push(entry);
     return accumulator;
   }, {});
+  const selectedEntries = selectedDate ? entriesByDate[selectedDate] ?? [] : [];
 
   async function createEntry(date: string) {
     const trimmedNickname = nickname.trim();
     const trimmedGoodDeed = goodDeed.trim();
 
     if (!trimmedNickname) {
-      setStatus({
-        type: "error",
-        message: "請先輸入暱稱，系統才知道這筆日曆屬於誰。",
-      });
       return;
     }
 
     if (!trimmedGoodDeed) {
-      setStatus({
-        type: "error",
-        message: "請先輸入你今天做了什麼好事，再點日期。",
-      });
       return;
     }
 
@@ -217,10 +174,6 @@ export default function HomePage() {
       };
 
       if (!response.ok || !data.entry) {
-        setStatus({
-          type: "error",
-          message: data.error ?? "新增失敗，請稍後再試。",
-        });
         return;
       }
 
@@ -231,37 +184,24 @@ export default function HomePage() {
       });
 
       setGoodDeed("");
-      setSelectedDate(null);
-      setStatus({
-        type: "success",
-        message: data.notification?.sent
-          ? `${trimmedNickname} 的 ${date} 已新增，Discord 通知已送出。`
-          : `${trimmedNickname} 的 ${date} 已新增，但 Discord Bot 設定缺少資料或送出失敗。`,
-      });
+      setSelectedDate(date);
+      setDraftDate(date);
+      setIsComposerOpen(false);
     } finally {
       setIsSubmitting(false);
     }
   }
 
   function handleSubmit() {
-    if (!selectedDate) {
-      setStatus({
-        type: "error",
-        message: "請先從日曆選一個日期。",
-      });
+    if (!draftDate) {
       return;
     }
 
-    void createEntry(selectedDate);
+    void createEntry(draftDate);
   }
 
-  function handleDateSelect(dateKey: string, date: Date) {
+  function handleDateSelect(dateKey: string) {
     setSelectedDate(dateKey);
-    setWeekAnchorDate(date);
-    setStatus({
-      type: "idle",
-      message: `已選擇 ${dateKey}，請在表單輸入今天的好事。`,
-    });
   }
 
   return (
@@ -277,152 +217,76 @@ export default function HomePage() {
                 </Badge>
                 <div className="space-y-3">
                   <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-6xl">
-                    用更乾淨的日曆版面，把今天的好事釘住。
+                    好事日曆
                   </h1>
                   <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-                    介面改成 `shadcn` 風格元件，加入深色與淺色模式，保留原本的好事輸入、週檢視與最新紀錄。
+                    把今天的好事，釘在日曆上。
                   </p>
                 </div>
               </div>
-              <StatusBanner status={status} />
             </div>
 
             <Card className="border-border/60 bg-background/70 shadow-none">
               <CardHeader className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <CardTitle>個人設定</CardTitle>
-                    <CardDescription>暱稱會保存在本機，重新整理後仍會保留。</CardDescription>
+                    <CardTitle>新增好事</CardTitle>
+                    <CardDescription>填寫暱稱、選擇日期後新增當天紀錄。</CardDescription>
                   </div>
                   <ThemeToggle />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="nickname">
-                    日曆暱稱
-                  </label>
-                  <Input
-                    id="nickname"
-                    maxLength={30}
-                    placeholder="例如：小明、企鵝隊長"
-                    value={nickname}
-                    onChange={(event) => setNickname(event.target.value)}
-                  />
-                </div>
-                <div className="rounded-2xl border border-dashed border-border bg-secondary/50 px-4 py-3 text-sm text-muted-foreground">
-                  選擇日期後會在下方跳出輸入表單，送出後同步寫入後端並發送 Discord 通知。
-                </div>
+                <Button
+                  className="h-11 w-full rounded-2xl"
+                  onClick={() => {
+                    setDraftDate(toDateKey(new Date()));
+                    setIsComposerOpen(true);
+                  }}
+                >
+                  新增好事
+                </Button>
               </CardContent>
             </Card>
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
-          <Card className="border-border/80">
+        <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
+          <Card ref={calendarCardRef} className="border-border/80 xl:h-full">
             <CardHeader className="space-y-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <CardTitle>{monthLabel(currentMonth)}</CardTitle>
-                  <CardDescription>月檢視可以快速看到每一天累積的好事數量。</CardDescription>
+                  <CardDescription>請點選日期查看當天的紀錄。</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
+                    size="icon"
+                    aria-label="上一個月份"
                     onClick={() =>
                       setCurrentMonth(
                         new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
                       )
                     }
                   >
-                    Prev
+                    <ChevronLeft className="size-4" />
                   </Button>
                   <Button
                     variant="outline"
+                    size="icon"
+                    aria-label="下一個月份"
                     onClick={() =>
                       setCurrentMonth(
                         new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
                       )
                     }
                   >
-                    Next
+                    <ChevronRight className="size-4" />
                   </Button>
                 </div>
               </div>
 
-              <div className="grid gap-4 rounded-3xl border border-border bg-secondary/40 p-4">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">週檢視</p>
-                    <p className="text-sm text-muted-foreground">
-                      {weekLabel(weekDays[0].date)} - {weekLabel(weekDays[6].date)}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        const next = new Date(weekAnchorDate);
-                        next.setDate(next.getDate() - 7);
-                        setWeekAnchorDate(next);
-                      }}
-                    >
-                      Prev Week
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        const next = new Date(weekAnchorDate);
-                        next.setDate(next.getDate() + 7);
-                        setWeekAnchorDate(next);
-                      }}
-                    >
-                      Next Week
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-7 gap-2 md:gap-3">
-                  {weekDays.map((day) => {
-                    const dayEntries = entriesByDate[day.key] ?? [];
-
-                    return (
-                      <button
-                        key={day.key}
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => handleDateSelect(day.key, day.date)}
-                        className={cn(
-                          "rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-                          day.isToday && "border-primary/50 bg-primary/5",
-                          dayEntries.length > 0 && "border-primary/20 bg-primary/10",
-                          selectedDate === day.key && "border-primary ring-2 ring-primary/30",
-                        )}
-                      >
-                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {weekdays[(day.date.getDay() + 6) % 7]}
-                        </p>
-                        <p className="mt-2 text-xl font-semibold">{day.date.getDate()}</p>
-                        <p className="mt-4 text-xs text-muted-foreground">{dayEntries.length} 件好事</p>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {dayEntries.slice(0, 3).map((entry) => (
-                            <Badge
-                              key={entry.id}
-                              className="h-7 min-w-7 justify-center rounded-full bg-primary text-primary-foreground"
-                              title={entry.nickname}
-                            >
-                              {entry.nickname.slice(0, 2)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -441,7 +305,7 @@ export default function HomePage() {
                       key={day.key}
                       type="button"
                       disabled={isSubmitting}
-                      onClick={() => handleDateSelect(day.key, day.date)}
+                      onClick={() => handleDateSelect(day.key)}
                       className={cn(
                         "min-h-28 rounded-3xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent md:min-h-32 md:p-4",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -451,18 +315,13 @@ export default function HomePage() {
                         selectedDate === day.key && "border-primary ring-2 ring-primary/30",
                       )}
                     >
-                      <p className="text-lg font-semibold md:text-2xl">{day.date.getDate()}</p>
-                      <p className="mt-5 text-xs text-muted-foreground">{dayEntries.length} 件好事</p>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {dayEntries.slice(0, 3).map((entry) => (
-                          <Badge
-                            key={entry.id}
-                            className="h-7 min-w-7 justify-center rounded-full bg-primary text-primary-foreground"
-                            title={entry.nickname}
-                          >
-                            {entry.nickname.slice(0, 2)}
-                          </Badge>
-                        ))}
+                      <div className="flex flex-col items-start gap-1.5">
+                        <p className="text-lg font-semibold md:text-2xl">{day.date.getDate()}</p>
+                        {dayEntries.length > 0 ? (
+                          <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">
+                            {dayEntries.length}
+                          </span>
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -471,19 +330,25 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6">
-            <Card className="border-border/80">
+          <div className="flex min-h-0">
+            <Card
+              className="border-border/80 xl:flex xl:min-h-0 xl:w-full xl:flex-col"
+              style={calendarCardHeight ? { height: `${calendarCardHeight}px` } : undefined}
+            >
               <CardHeader>
-                <CardTitle>最新紀錄</CardTitle>
-                <CardDescription>最近 10 筆好事會顯示在這裡。</CardDescription>
+                <CardTitle>{selectedDate ? `${selectedDate} 的紀錄` : "當天紀錄"}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {entries.length === 0 ? (
+              <CardContent className="space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-3">
+                {!selectedDate ? (
                   <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
-                    還沒有紀錄，先點第一個日期。
+                    請先從日曆點選一個日期。
+                  </div>
+                ) : selectedEntries.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
+                    這一天還沒有紀錄。
                   </div>
                 ) : (
-                  entries.slice(0, 10).map((entry) => (
+                  selectedEntries.map((entry) => (
                     <article
                       key={entry.id}
                       className="rounded-2xl border border-border bg-background/70 p-4"
@@ -493,40 +358,23 @@ export default function HomePage() {
                           <p className="text-sm font-semibold">{entry.nickname}</p>
                           <p className="text-sm leading-6 text-muted-foreground">{entry.content}</p>
                         </div>
-                        <Badge>{entry.date}</Badge>
+                        <Badge variant="secondary">{entry.date}</Badge>
                       </div>
                     </article>
                   ))
                 )}
               </CardContent>
             </Card>
-
-            <Card className="border-border/80 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
-              <CardHeader>
-                <CardTitle>資料摘要</CardTitle>
-                <CardDescription>用目前的日曆資料快速確認狀態。</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-border bg-background/70 p-4">
-                  <p className="text-sm text-muted-foreground">總筆數</p>
-                  <p className="mt-2 text-3xl font-semibold">{entries.length}</p>
-                </div>
-                <div className="rounded-2xl border border-border bg-background/70 p-4">
-                  <p className="text-sm text-muted-foreground">已選日期</p>
-                  <p className="mt-2 text-lg font-semibold">{selectedDate ?? "尚未選擇"}</p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
 
-      {selectedDate ? (
+      {isComposerOpen ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
           onClick={() => {
             if (isSubmitting) return;
-            setSelectedDate(null);
+            setIsComposerOpen(false);
             setGoodDeed("");
           }}
           role="presentation"
@@ -550,14 +398,14 @@ export default function HomePage() {
                   <Badge className="rounded-full bg-primary/10 text-primary dark:bg-primary/15">
                     GOOD DEED ENTRY
                   </Badge>
-                  <CardTitle className="text-3xl">{selectedDate}</CardTitle>
-                  <CardDescription>輸入今天發生的好事，送出後會同步更新日曆。</CardDescription>
+                  <CardTitle className="text-3xl">{draftDate}</CardTitle>
+                  <CardDescription>今天做了什麼好事。</CardDescription>
                 </div>
                 <Button
                   variant="ghost"
                   disabled={isSubmitting}
                   onClick={() => {
-                    setSelectedDate(null);
+                    setIsComposerOpen(false);
                     setGoodDeed("");
                   }}
                 >
@@ -567,6 +415,18 @@ export default function HomePage() {
             </CardHeader>
 
             <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="modal-date">
+                  日期
+                </label>
+                <Input
+                  id="modal-date"
+                  type="date"
+                  value={draftDate}
+                  onChange={(event) => setDraftDate(event.target.value)}
+                />
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="modal-nickname">
                   日曆暱稱
@@ -607,11 +467,7 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="rounded-2xl border border-border bg-secondary/50 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">發送者</p>
-                  <p className="mt-1 text-sm font-semibold">{nickname.trim() || "尚未填寫暱稱"}</p>
-                </div>
+              <div className="flex justify-end">
                 <Button className="h-11 min-w-32 rounded-2xl" disabled={isSubmitting} onClick={handleSubmit}>
                   {isSubmitting ? "發送中..." : "發送好事"}
                 </Button>
