@@ -235,13 +235,13 @@ export default function SettingsPage() {
         <Card className="border-border/80 bg-card/85">
           <CardHeader>
             <CardTitle>需要先登入</CardTitle>
-            <CardDescription>設定頁只提供已登入帳號使用，請先到個人介面登入或註冊。</CardDescription>
+            <CardDescription>設定頁只提供已登入帳號使用，請先前往登入 / 註冊頁。</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild className="rounded-2xl">
-              <Link href="/profile">
+              <Link href="/login">
                 <UserRound className="size-4" />
-                前往個人介面
+                前往登入 / 註冊
               </Link>
             </Button>
           </CardContent>
