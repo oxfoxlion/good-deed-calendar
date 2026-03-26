@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
+  const router = useRouter();
   const { currentUser, login, register, isLoading } = useAuth();
   const [nickname, setNickname] = useState("");
   const [pin, setPin] = useState("");
@@ -20,6 +22,12 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!isLoading && currentUser.isLoggedIn) {
+      router.replace("/profile");
+    }
+  }, [currentUser.isLoggedIn, isLoading, router]);
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
@@ -27,7 +35,10 @@ export default function LoginPage() {
     const result = await login({ nickname, pin });
     if (!result.ok) {
       setErrorMessage(result.error ?? "登入失敗");
+      setIsSubmitting(false);
+      return;
     }
+    router.push("/profile");
     setIsSubmitting(false);
   }
 
@@ -38,7 +49,10 @@ export default function LoginPage() {
     const result = await register({ nickname: registerNickname, pin: registerPin });
     if (!result.ok) {
       setErrorMessage(result.error ?? "註冊失敗");
+      setIsSubmitting(false);
+      return;
     }
+    router.push("/profile");
     setIsSubmitting(false);
   }
 
@@ -56,7 +70,7 @@ export default function LoginPage() {
         <Card className="border-border/80 bg-card/85">
           <CardHeader>
             <CardTitle>目前已登入</CardTitle>
-            <CardDescription>你可以直接前往個人介面查看紀錄，或到設定頁修改帳號資料。</CardDescription>
+            <CardDescription>正在前往個人介面...</CardDescription>
           </CardHeader>
         </Card>
       ) : (

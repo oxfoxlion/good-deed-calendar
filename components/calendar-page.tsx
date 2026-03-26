@@ -53,6 +53,13 @@ function getTodayDateKey() {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function getEarliestAllowedDateKey() {
+  const { year, month } = getCalendarNowParts();
+  const previousMonth = month === 1 ? 12 : month - 1;
+  const previousMonthYear = month === 1 ? year - 1 : year;
+  return `${previousMonthYear}-${String(previousMonth).padStart(2, "0")}-01`;
+}
+
 function monthLabel(date: Date) {
   return new Intl.DateTimeFormat("zh-TW", {
     timeZone: CALENDAR_TIME_ZONE,
@@ -95,6 +102,9 @@ export function CalendarPage() {
     return new Date(year, month - 1, 1);
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const latestAllowedDate = getTodayDateKey();
+  const earliestAllowedDate = getEarliestAllowedDateKey();
 
   const nickname = currentUser.isLoggedIn ? currentUser.nickname : guestNickname;
 
@@ -184,7 +194,15 @@ export function CalendarPage() {
       return;
     }
 
+    if (date < earliestAllowedDate || date > latestAllowedDate) {
+      setSubmitError(
+        `只能新增本月或上個月，且不可超過今天（可選 ${earliestAllowedDate} 到 ${latestAllowedDate}）`,
+      );
+      return;
+    }
+
     setIsSubmitting(true);
+    setSubmitError("");
 
     try {
       const response = await fetch("/api/entries", {
@@ -201,9 +219,11 @@ export function CalendarPage() {
 
       const data = (await response.json()) as {
         entry?: Entry;
+        error?: string;
       };
 
       if (!response.ok || !data.entry) {
+        setSubmitError(data.error ?? "新增失敗");
         return;
       }
 
@@ -250,7 +270,8 @@ export function CalendarPage() {
             <Button
               className="h-11 w-full rounded-2xl"
               onClick={() => {
-                setDraftDate(getTodayDateKey());
+                setDraftDate(latestAllowedDate);
+                setSubmitError("");
                 setIsComposerOpen(true);
               }}
             >
@@ -465,7 +486,8 @@ export function CalendarPage() {
               <Button
                 className="h-11 w-full rounded-2xl"
                 onClick={() => {
-                  setDraftDate(getTodayDateKey());
+                  setDraftDate(latestAllowedDate);
+                  setSubmitError("");
                   setIsComposerOpen(true);
                 }}
               >
@@ -519,6 +541,7 @@ export function CalendarPage() {
 
             setIsComposerOpen(false);
             setGoodDeed("");
+            setSubmitError("");
           }}
           role="presentation"
         >
@@ -553,6 +576,7 @@ export function CalendarPage() {
                   onClick={() => {
                     setIsComposerOpen(false);
                     setGoodDeed("");
+                    setSubmitError("");
                   }}
                   aria-label="關閉新增好事視窗"
                 >
@@ -569,9 +593,17 @@ export function CalendarPage() {
                 <Input
                   id="modal-date"
                   type="date"
+                  min={earliestAllowedDate}
+                  max={latestAllowedDate}
                   value={draftDate}
-                  onChange={(event) => setDraftDate(event.target.value)}
+                  onChange={(event) => {
+                    setDraftDate(event.target.value);
+                    setSubmitError("");
+                  }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  只能新增本月或上個月，日期範圍為 {earliestAllowedDate} 到 {latestAllowedDate}。
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -601,6 +633,8 @@ export function CalendarPage() {
                   onChange={(event) => setGoodDeed(event.target.value)}
                 />
               </div>
+
+              {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
 
               <div className="flex flex-wrap gap-2">
                 {quickGoodDeeds.map((item) => (
