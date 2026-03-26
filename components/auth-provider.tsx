@@ -27,6 +27,8 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (input: { nickname: string; pin: string }) => Promise<{ ok: boolean; error?: string }>;
   register: (input: { nickname: string; pin: string }) => Promise<{ ok: boolean; error?: string }>;
+  updateNickname: (input: { nickname: string }) => Promise<{ ok: boolean; error?: string }>;
+  updatePin: (input: { currentPin: string; newPin: string }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshCurrentUser: () => Promise<void>;
 };
@@ -165,6 +167,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function updateNickname(input: { nickname: string }) {
+    try {
+      const response = await fetch("/api/auth/nickname", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(input),
+      });
+
+      const data = (await response.json()) as {
+        user?: {
+          id: string;
+          nickname: string;
+          created_at: string;
+          last_login_at?: string | null;
+        };
+        error?: string;
+      };
+
+      if (!response.ok || !data.user) {
+        return { ok: false, error: data.error ?? "更新暱稱失敗" };
+      }
+
+      setCurrentUser(toAuthenticatedUser(data.user));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "更新暱稱失敗" };
+    }
+  }
+
+  async function updatePin(input: { currentPin: string; newPin: string }) {
+    try {
+      const response = await fetch("/api/auth/pin", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(input),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        return { ok: false, error: data.error ?? "更新 PIN 失敗" };
+      }
+
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "更新 PIN 失敗" };
+    }
+  }
+
   async function logout() {
     try {
       await fetch("/api/auth/logout", {
@@ -183,6 +243,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         login,
         register,
+        updateNickname,
+        updatePin,
         logout,
         refreshCurrentUser,
       }}

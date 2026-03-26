@@ -2,27 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LogIn, LogOut, PanelLeftClose, PanelLeftOpen, UserRound } from "lucide-react";
+import {
+  CalendarDays,
+  LogIn,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  UserRound,
+} from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
-
-const navigationItems = [
-  {
-    href: "/",
-    label: "好事日曆",
-    description: "查看全站紀錄與新增好事",
-    icon: CalendarDays,
-  },
-  {
-    href: "/profile",
-    label: "個人介面",
-    description: "登入後管理自己的資料",
-    icon: UserRound,
-  },
-];
 
 type AppSidebarProps = {
   isCollapsed: boolean;
@@ -40,6 +33,30 @@ export function AppSidebar({
   const pathname = usePathname();
   const { currentUser, isLoading, logout } = useAuth();
   const CollapseIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
+  const navigationItems = [
+    {
+      href: "/",
+      label: "好事日曆",
+      description: "查看全站紀錄與新增好事",
+      icon: CalendarDays,
+    },
+    ...(currentUser.isLoggedIn
+      ? [
+          {
+            href: "/profile",
+            label: "個人介面",
+            description: "查看個人好事紀錄",
+            icon: UserRound,
+          },
+          {
+            href: "/settings",
+            label: "設定",
+            description: "登入後管理自己的資料",
+            icon: Settings,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <aside
@@ -90,7 +107,7 @@ export function AppSidebar({
             </Button>
           ) : (
             <Button asChild className={cn("w-full rounded-2xl", isCollapsed && "px-0")}>
-              <Link href="/profile" onClick={() => onCloseMobile?.()}>
+              <Link href="/login" onClick={() => onCloseMobile?.()}>
                 <LogIn className="size-4" />
                 {!isCollapsed ? "登入 / 註冊" : null}
               </Link>
