@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { useAuth } from "@/components/auth-provider";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { GoodDeedComposer } from "@/components/good-deed-composer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const CALENDAR_TIME_ZONE = "Asia/Taipei";
@@ -18,13 +16,13 @@ type Entry = {
   id: string;
   nickname: string;
   content: string;
+  skip_discord_notification?: boolean;
+  hide_from_global_feed?: boolean;
   date: string;
   created_at: string;
 };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const quickGoodDeeds = ["做了喜歡的事情", "覺得自己很棒", "遇到讚事", "很幸運", "可愛", "愛"];
-const guestNicknameStorageKey = "good-deed-calendar:guest-nickname";
 
 function toDateKey(date: Date) {
   const year = date.getFullYear();
@@ -88,12 +86,7 @@ function buildCalendarDays(currentMonth: Date) {
 
 export function CalendarPage() {
   const calendarCardRef = useRef<HTMLDivElement | null>(null);
-  const { currentUser } = useAuth();
-  const [guestNickname, setGuestNickname] = useState("");
-  const [goodDeed, setGoodDeed] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [draftDate, setDraftDate] = useState(() => getTodayDateKey());
-  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [calendarCardHeight, setCalendarCardHeight] = useState<number | null>(null);
   const [isXlViewport, setIsXlViewport] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -101,23 +94,8 @@ export function CalendarPage() {
     const { year, month } = getCalendarNowParts();
     return new Date(year, month - 1, 1);
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
   const latestAllowedDate = getTodayDateKey();
   const earliestAllowedDate = getEarliestAllowedDateKey();
-
-  const nickname = currentUser.isLoggedIn ? currentUser.nickname : guestNickname;
-
-  useEffect(() => {
-    const storedNickname = window.localStorage.getItem(guestNicknameStorageKey);
-    if (storedNickname) {
-      setGuestNickname(storedNickname);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(guestNicknameStorageKey, guestNickname);
-  }, [guestNickname]);
 
   useEffect(() => {
     async function loadEntries() {
@@ -185,69 +163,14 @@ export function CalendarPage() {
     return accumulator;
   }, {});
   const selectedEntries = selectedDate ? entriesByDate[selectedDate] ?? [] : [];
+  const recentEntries = entries.slice(0, 10);
 
-  async function createEntry(date: string) {
-    const trimmedNickname = nickname.trim();
-    const trimmedGoodDeed = goodDeed.trim();
-
-    if (!trimmedNickname || !trimmedGoodDeed) {
-      return;
-    }
-
-    if (date < earliestAllowedDate || date > latestAllowedDate) {
-      setSubmitError(
-        `只能新增本月或上個月，且不可超過今天（可選 ${earliestAllowedDate} 到 ${latestAllowedDate}）`,
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError("");
-
-    try {
-      const response = await fetch("/api/entries", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          nickname: trimmedNickname,
-          content: trimmedGoodDeed,
-          date,
-        }),
-      });
-
-      const data = (await response.json()) as {
-        entry?: Entry;
-        error?: string;
-      };
-
-      if (!response.ok || !data.entry) {
-        setSubmitError(data.error ?? "新增失敗");
-        return;
-      }
-
-      setEntries((currentEntries) => {
-        const exists = currentEntries.some((entry) => entry.id === data.entry?.id);
-        return exists ? currentEntries : [data.entry!, ...currentEntries];
-      });
-
-      window.dispatchEvent(new CustomEvent("good-deed:entry-created"));
-      setGoodDeed("");
-      setSelectedDate(date);
-      setDraftDate(date);
-      setIsComposerOpen(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  function handleSubmit() {
-    if (!draftDate) {
-      return;
-    }
-
-    void createEntry(draftDate);
+  function handleEntryCreated(entry: Entry) {
+    setEntries((currentEntries) => {
+      const exists = currentEntries.some((currentEntry) => currentEntry.id === entry.id);
+      return exists ? currentEntries : [entry, ...currentEntries];
+    });
+    setSelectedDate(entry.date);
   }
 
   return (
@@ -257,28 +180,11 @@ export function CalendarPage() {
       description="把今天的好事，釘在日曆上。"
     >
       <div className="flex flex-col gap-6 xl:hidden">
-        <Card className="border-border/80 bg-card/80 shadow-none">
-          <CardHeader className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <CardTitle>新增好事</CardTitle>
-                <CardDescription>填寫暱稱、選擇日期後新增當天紀錄。</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              className="h-11 w-full rounded-2xl"
-              onClick={() => {
-                setDraftDate(latestAllowedDate);
-                setSubmitError("");
-                setIsComposerOpen(true);
-              }}
-            >
-              新增好事
-            </Button>
-          </CardContent>
-        </Card>
+        <GoodDeedComposer
+          earliestAllowedDate={earliestAllowedDate}
+          latestAllowedDate={latestAllowedDate}
+          onEntryCreated={handleEntryCreated}
+        />
 
         <Card ref={calendarCardRef} className="border-border/80">
           <CardHeader className="space-y-5">
@@ -331,11 +237,10 @@ export function CalendarPage() {
                   <button
                     key={day.key}
                     type="button"
-                    disabled={isSubmitting}
                     onClick={() => setSelectedDate(day.key)}
                     className={cn(
                       "min-h-16 rounded-xl border p-2 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent sm:min-h-24 sm:rounded-2xl sm:p-2.5",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       !day.isCurrentMonth && "opacity-40",
                       day.isToday && "border-primary/50",
                       dayEntries.length > 0 && "bg-primary/10",
@@ -359,13 +264,31 @@ export function CalendarPage() {
 
         <Card className="w-full border-border/80">
           <CardHeader>
-            <CardTitle>{selectedDate ? `${selectedDate} 的紀錄` : "當天紀錄"}</CardTitle>
+            <CardTitle>{selectedDate ? `${selectedDate} 的紀錄` : "最新紀錄"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {!selectedDate ? (
-              <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
-                請先從日曆點選一個日期。
-              </div>
+              recentEntries.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
+                  目前還沒有紀錄。
+                </div>
+              ) : (
+                recentEntries.map((entry) => (
+                  <article key={entry.id} className="rounded-2xl border border-border bg-background/70 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-2">
+                        <p className="text-sm font-semibold">{entry.nickname}</p>
+                        <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                          {entry.content}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="shrink-0">
+                        {entry.date}
+                      </Badge>
+                    </div>
+                  </article>
+                ))
+              )
             ) : selectedEntries.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
                 這一天還沒有紀錄。
@@ -394,12 +317,12 @@ export function CalendarPage() {
       <div className="hidden gap-6 xl:grid xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
         <Card ref={calendarCardRef} className="border-border/80 xl:h-full">
           <CardHeader className="space-y-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-1">
-                  <CardTitle>{monthLabel(currentMonth)}</CardTitle>
-                  <CardDescription>請點選日期查看當天的紀錄。</CardDescription>
-                </div>
-                <div className="flex gap-2">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <CardTitle>{monthLabel(currentMonth)}</CardTitle>
+                <CardDescription>請點選日期查看當天的紀錄。</CardDescription>
+              </div>
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="icon"
@@ -443,11 +366,10 @@ export function CalendarPage() {
                   <button
                     key={day.key}
                     type="button"
-                    disabled={isSubmitting}
                     onClick={() => setSelectedDate(day.key)}
                     className={cn(
                       "min-h-16 rounded-xl border p-2 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent sm:min-h-24 sm:rounded-2xl sm:p-2.5 md:min-h-32 md:rounded-3xl md:p-4",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       !day.isCurrentMonth && "opacity-40",
                       day.isToday && "border-primary/50",
                       dayEntries.length > 0 && "bg-primary/10",
@@ -473,38 +395,39 @@ export function CalendarPage() {
           className="flex min-h-0 w-full flex-col gap-6"
           style={isXlViewport && calendarCardHeight ? { height: `${calendarCardHeight}px` } : undefined}
         >
-          <Card className="border-border/80 bg-card/80 shadow-none">
-            <CardHeader className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <CardTitle>新增好事</CardTitle>
-                  <CardDescription>填寫暱稱、選擇日期後新增當天紀錄。</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                className="h-11 w-full rounded-2xl"
-                onClick={() => {
-                  setDraftDate(latestAllowedDate);
-                  setSubmitError("");
-                  setIsComposerOpen(true);
-                }}
-              >
-                新增好事
-              </Button>
-            </CardContent>
-          </Card>
+          <GoodDeedComposer
+            earliestAllowedDate={earliestAllowedDate}
+            latestAllowedDate={latestAllowedDate}
+            onEntryCreated={handleEntryCreated}
+          />
 
           <Card className="w-full border-border/80 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
             <CardHeader>
-              <CardTitle>{selectedDate ? `${selectedDate} 的紀錄` : "當天紀錄"}</CardTitle>
+              <CardTitle>{selectedDate ? `${selectedDate} 的紀錄` : "最新紀錄"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-3">
               {!selectedDate ? (
-                <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
-                  請先從日曆點選一個日期。
-                </div>
+                recentEntries.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
+                    目前還沒有紀錄。
+                  </div>
+                ) : (
+                  recentEntries.map((entry) => (
+                    <article key={entry.id} className="rounded-2xl border border-border bg-background/70 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-2">
+                          <p className="text-sm font-semibold">{entry.nickname}</p>
+                          <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                            {entry.content}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0">
+                          {entry.date}
+                        </Badge>
+                      </div>
+                    </article>
+                  ))
+                )
               ) : selectedEntries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-6 text-sm text-muted-foreground">
                   這一天還沒有紀錄。
@@ -530,134 +453,6 @@ export function CalendarPage() {
           </Card>
         </div>
       </div>
-
-      {isComposerOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
-          onClick={() => {
-            if (isSubmitting) {
-              return;
-            }
-
-            setIsComposerOpen(false);
-            setGoodDeed("");
-            setSubmitError("");
-          }}
-          role="presentation"
-        >
-          <Card
-            className="relative w-full max-w-2xl border-border/80 bg-background/95"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            {isSubmitting ? (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-background/90">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-                <p className="text-sm font-medium">正在送出好事紀錄...</p>
-              </div>
-            ) : null}
-
-            <CardHeader className="space-y-5">
-              <div className="relative flex flex-col gap-4 pr-12 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-2">
-                  <Badge className="rounded-full bg-primary/10 text-primary dark:bg-primary/15">
-                    GOOD DEED ENTRY
-                  </Badge>
-                  <CardTitle className="text-3xl">{draftDate}</CardTitle>
-                  <CardDescription>今天做了什麼好事。</CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={isSubmitting}
-                  className="absolute right-0 top-0 rounded-full"
-                  onClick={() => {
-                    setIsComposerOpen(false);
-                    setGoodDeed("");
-                    setSubmitError("");
-                  }}
-                  aria-label="關閉新增好事視窗"
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="modal-date">
-                  日期
-                </label>
-                <Input
-                  id="modal-date"
-                  type="date"
-                  min={earliestAllowedDate}
-                  max={latestAllowedDate}
-                  value={draftDate}
-                  onChange={(event) => {
-                    setDraftDate(event.target.value);
-                    setSubmitError("");
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  只能新增本月或上個月，日期範圍為 {earliestAllowedDate} 到 {latestAllowedDate}。
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="modal-nickname">
-                  日曆暱稱
-                </label>
-                <Input
-                  id="modal-nickname"
-                  maxLength={10}
-                  placeholder="例如：小明、企鵝隊長"
-                  value={nickname}
-                  readOnly={currentUser.isLoggedIn}
-                  onChange={(event) => setGuestNickname(event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="modal-good-deed">
-                  今天做了什麼好事
-                </label>
-                <Textarea
-                  id="modal-good-deed"
-                  autoFocus
-                  maxLength={280}
-                  placeholder="例如：幫同事處理卡住的工作、陪家人吃飯、主動關心朋友"
-                  value={goodDeed}
-                  onChange={(event) => setGoodDeed(event.target.value)}
-                />
-              </div>
-
-              {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
-
-              <div className="flex flex-wrap gap-2">
-                {quickGoodDeeds.map((item) => (
-                  <Button
-                    key={item}
-                    variant={goodDeed === item ? "default" : "outline"}
-                    className="rounded-full"
-                    onClick={() => setGoodDeed(item)}
-                  >
-                    {item}
-                  </Button>
-                ))}
-              </div>
-
-              <div className="flex justify-end">
-                <Button className="h-11 min-w-32 rounded-2xl" disabled={isSubmitting} onClick={handleSubmit}>
-                  {isSubmitting ? "發送中..." : "發送好事"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
     </DashboardShell>
   );
 }

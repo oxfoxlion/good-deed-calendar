@@ -61,11 +61,15 @@ export async function POST(request: Request) {
     nickname?: string;
     content?: string;
     date?: string;
+    skip_discord_notification?: boolean;
+    hide_from_global_feed?: boolean;
   };
 
   const nickname = body.nickname?.trim();
   const content = body.content?.trim();
   const date = body.date?.trim();
+  const skipDiscordNotification = body.skip_discord_notification === true;
+  const hideFromGlobalFeed = body.hide_from_global_feed === true;
 
   if (nickname && nickname.length > 10) {
     return NextResponse.json(
@@ -100,7 +104,13 @@ export async function POST(request: Request) {
 
   try {
     const { entry, created, notification } = await addEntry(
-      { nickname: nickname ?? "", content, date },
+      {
+        nickname: nickname ?? "",
+        content,
+        date,
+        skip_discord_notification: skipDiscordNotification,
+        hide_from_global_feed: hideFromGlobalFeed,
+      },
       { cookieHeader: request.headers.get("cookie") ?? "" },
     );
     return NextResponse.json({ entry, created, notification });

@@ -5,6 +5,7 @@ import { Check, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { GoodDeedComposer } from "@/components/good-deed-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,13 @@ function getCalendarNowParts() {
 function getTodayDateKey() {
   const { year, month, day } = getCalendarNowParts();
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function getEarliestAllowedDateKey() {
+  const { year, month } = getCalendarNowParts();
+  const previousMonth = month === 1 ? 12 : month - 1;
+  const previousMonthYear = month === 1 ? year - 1 : year;
+  return `${previousMonthYear}-${String(previousMonth).padStart(2, "0")}-01`;
 }
 
 function monthLabel(date: Date) {
@@ -112,6 +120,8 @@ export default function ProfilePage() {
   const calendarDays = buildCalendarDays(currentMonth);
   const activeDateSet = new Set(profileData?.active_dates_this_month ?? []);
   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+  const latestAllowedDate = getTodayDateKey();
+  const earliestAllowedDate = getEarliestAllowedDateKey();
   const selectedDateEntries = selectedDate
     ? (profileData?.month_entries ?? []).filter((entry) => entry.date === selectedDate)
     : [];
@@ -183,8 +193,15 @@ export default function ProfilePage() {
         </Card>
       ) : currentUser.isLoggedIn ? (
         <div className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-            <Card className="border-border/80 bg-card/85">
+          <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[0.92fr_1.08fr]">
+            <GoodDeedComposer
+              earliestAllowedDate={earliestAllowedDate}
+              latestAllowedDate={latestAllowedDate}
+              description="新增後會同步更新你的月曆與最近紀錄。"
+              className="xl:col-start-2 xl:row-start-1"
+            />
+
+            <Card className="border-border/80 bg-card/85 xl:col-start-1 xl:row-start-1 xl:row-span-2">
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -284,7 +301,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/80">
+            <Card className="border-border/80 xl:col-start-2 xl:row-start-2">
               <CardHeader>
                 <CardTitle>{selectedDate ? `${selectedDate} 的紀錄` : "最近的個人紀錄"}</CardTitle>
                 <CardDescription>

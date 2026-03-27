@@ -3,8 +3,15 @@ export type GoodDeedEntry = {
   user_id?: string | null;
   nickname: string;
   content: string;
+  skip_discord_notification?: boolean;
+  hide_from_global_feed?: boolean;
   date: string;
   created_at: string;
+};
+
+export type CreateGoodDeedInput = Pick<GoodDeedEntry, "nickname" | "content" | "date"> & {
+  skip_discord_notification?: boolean;
+  hide_from_global_feed?: boolean;
 };
 
 type NotificationResult = {
@@ -44,7 +51,7 @@ export async function listEntries() {
 }
 
 export async function addEntry(
-  input: Pick<GoodDeedEntry, "nickname" | "content" | "date">,
+  input: CreateGoodDeedInput,
   options?: { cookieHeader?: string },
 ) {
   const response = await fetch(`${getCalendarApiBaseUrl()}/good_calendar/entries`, {
