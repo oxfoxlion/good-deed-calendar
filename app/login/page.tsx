@@ -78,9 +78,14 @@ export default function LoginPage() {
           <Card className="border-border/80 bg-card/85">
             <CardHeader>
               <CardTitle>登入</CardTitle>
-              <CardDescription>使用暱稱與 6 位數 PIN 登入。</CardDescription>
+              <CardDescription>使用 Google，或使用暱稱與 6 位數 PIN 登入。</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-4">
+                <Button asChild className="w-full rounded-2xl" variant="outline">
+                  <a href="/api/auth/google/start?redirect_to=%2Fprofile">使用 Google 登入</a>
+                </Button>
+              </div>
               <form className="space-y-4" onSubmit={handleLogin}>
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="login-nickname">
