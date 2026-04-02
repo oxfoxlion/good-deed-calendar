@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useEffectEvent, useState } from "react";
-import { BadgeCheck, Check, ChevronLeft, ChevronRight, Flame, Lock, UserRound } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Flame, UserRound } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -137,52 +138,38 @@ function MetalBadgeCard({
   days: number;
   earned: boolean;
 }) {
+  const tooltipText = earned
+    ? `${days} 天徽章已領取`
+    : `累積到連續 ${days} 天即可解鎖`;
+
   return (
-    <article
-      className={cn(
-        "relative overflow-hidden rounded-3xl border p-4 transition sm:p-5",
-        earned
-          ? "border-amber-200/75 bg-[linear-gradient(145deg,rgba(255,247,214,0.98),rgba(233,207,122,0.92)_28%,rgba(176,126,36,0.9)_62%,rgba(255,244,202,0.96))] text-stone-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_18px_32px_rgba(176,126,36,0.2)] dark:border-amber-200/20 dark:bg-[linear-gradient(145deg,rgba(78,61,22,0.96),rgba(198,154,52,0.7)_30%,rgba(87,63,20,0.96)_62%,rgba(240,213,126,0.34))] dark:text-amber-50"
-          : "border-slate-300/70 bg-[linear-gradient(145deg,rgba(249,250,252,0.96),rgba(214,221,231,0.9)_32%,rgba(148,163,184,0.78)_66%,rgba(244,247,251,0.94))] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_14px_24px_rgba(148,163,184,0.14)] dark:border-slate-200/10 dark:bg-[linear-gradient(145deg,rgba(53,62,74,0.96),rgba(116,129,145,0.72)_30%,rgba(41,49,60,0.98)_66%,rgba(185,194,205,0.18))] dark:text-slate-100",
-      )}
-    >
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-x-3 top-0 h-16 rounded-b-[1.5rem]",
-          earned
-            ? "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_70%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,248,220,0.22),transparent_74%)]"
-            : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.82),transparent_72%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_76%)]",
-        )}
-      />
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p
-            className={cn(
-              "text-sm",
-              earned ? "text-stone-700/85 dark:text-amber-100/80" : "text-slate-600 dark:text-slate-300/80",
-            )}
-          >
-            連續徽章
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{days} 天</p>
-        </div>
-        {earned ? (
-          <BadgeCheck className="size-5 shrink-0 text-amber-800 drop-shadow-[0_1px_2px_rgba(255,255,255,0.55)] dark:text-amber-200" />
-        ) : (
-          <Lock className="size-5 shrink-0 text-slate-500 dark:text-slate-300/75" />
-        )}
-      </div>
-      <p
-        className={cn(
-          "mt-4 text-sm leading-6",
-          earned ? "text-stone-700 dark:text-amber-50/90" : "text-slate-600 dark:text-slate-200/82",
-        )}
+    <div className="group relative">
+      <button
+        type="button"
+        aria-label={tooltipText}
+        className="relative mx-auto block w-full max-w-[13rem] transition hover:-translate-y-1 focus-visible:-translate-y-1"
       >
-        {earned
-          ? "已領取，之後再次達到相同門檻不會重複發放。"
-          : `尚未達成，累積到連續 ${days} 天即可解鎖。`}
-      </p>
-    </article>
+        <div className="relative aspect-square overflow-hidden rounded-[2rem]">
+          <Image
+            src={`/badges/streak-${days}.png`}
+            alt={`${days} 天連續徽章`}
+            fill
+            sizes="(max-width: 640px) 160px, (max-width: 1280px) 200px, 220px"
+            className={cn(
+              "object-contain transition duration-300",
+              earned ? "" : "grayscale brightness-[0.85] contrast-[0.9]",
+            )}
+          />
+          {!earned ? (
+            <div className="absolute inset-0 bg-slate-950/28 backdrop-grayscale-[0.65]" />
+          ) : null}
+        </div>
+      </button>
+
+      <div className="pointer-events-none absolute inset-x-2 -top-20 z-10 rounded-2xl border border-slate-200/80 bg-white/96 px-4 py-3 text-left text-sm leading-6 text-slate-700 opacity-0 shadow-xl transition duration-200 group-hover:-translate-y-1 group-hover:opacity-100 group-focus-within:-translate-y-1 group-focus-within:opacity-100 dark:border-white/10 dark:bg-slate-900/96 dark:text-slate-100">
+        {tooltipText}
+      </div>
+    </div>
   );
 }
 

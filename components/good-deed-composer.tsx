@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 const guestNicknameStorageKey = "good-deed-calendar:guest-nickname";
 const quickGoodDeeds = ["做了喜歡的事情", "覺得自己很棒", "遇到讚事", "很幸運", "可愛", "愛"];
+const CALENDAR_TIME_ZONE = "Asia/Taipei";
 
 type Entry = {
   id: string;
@@ -28,6 +29,46 @@ type EntryOptions = {
   skip_discord_notification?: boolean;
   hide_from_global_feed?: boolean;
 };
+
+type BadgeState = {
+  days: number;
+  earned: boolean;
+};
+
+type ProfileBadgeResponse = {
+  profile?: {
+    streak_summary?: {
+      badges?: BadgeState[];
+    };
+  };
+};
+
+function getCurrentMonthKey() {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CALENDAR_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+  });
+  const parts = formatter.formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  return `${year}-${month}`;
+}
+
+async function loadEarnedBadges() {
+  const response = await fetch(`/api/profile?month=${getCurrentMonthKey()}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as ProfileBadgeResponse;
+  return (data.profile?.streak_summary?.badges ?? []).filter((badge) => badge.earned).map((badge) => badge.days);
+}
 
 type GoodDeedComposerProps = {
   latestAllowedDate: string;
@@ -110,6 +151,7 @@ export function GoodDeedComposer({
     setSubmitError("");
 
     try {
+      const earnedBadgesBefore = currentUser.isLoggedIn ? await loadEarnedBadges() : [];
       const response = await fetch("/api/entries", {
         method: "POST",
         headers: {
@@ -134,6 +176,20 @@ export function GoodDeedComposer({
       }
 
       window.dispatchEvent(new CustomEvent("good-deed:entry-created"));
+      if (currentUser.isLoggedIn) {
+        const earnedBadgesAfter = await loadEarnedBadges();
+        const newlyEarnedBadges = earnedBadgesAfter.filter((days) => !earnedBadgesBefore.includes(days));
+
+        if (newlyEarnedBadges.length) {
+          window.dispatchEvent(
+            new CustomEvent("good-deed:badge-earned", {
+              detail: {
+                badges: newlyEarnedBadges,
+              },
+            }),
+          );
+        }
+      }
       onEntryCreated?.(data.entry);
       setGoodDeed("");
       setDraftDate(data.entry.date);
