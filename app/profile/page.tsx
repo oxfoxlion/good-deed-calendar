@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
+import { BadgeCheck, Check, ChevronLeft, ChevronRight, Flame, Lock, UserRound } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -11,12 +11,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 const CALENDAR_TIME_ZONE = "Asia/Taipei";
+const STREAK_BADGE_DAYS = [7, 14, 28, 50, 100];
 
 type ProfileData = {
   month: string;
   total_entries: number;
   last_entry_at: string | null;
   active_dates_this_month: string[];
+  streak_summary: {
+    current_streak: number;
+    longest_streak: number;
+    next_badge_days: number | null;
+    badges: Array<{
+      days: number;
+      earned: boolean;
+    }>;
+  };
   month_entries: Array<{
     id: string;
     date: string;
@@ -108,6 +118,74 @@ function formatDateTime(value: string | null) {
   }).format(new Date(value));
 }
 
+function getDefaultStreakSummary() {
+  return {
+    current_streak: 0,
+    longest_streak: 0,
+    next_badge_days: STREAK_BADGE_DAYS[0],
+    badges: STREAK_BADGE_DAYS.map((days) => ({
+      days,
+      earned: false,
+    })),
+  };
+}
+
+function MetalBadgeCard({
+  days,
+  earned,
+}: {
+  days: number;
+  earned: boolean;
+}) {
+  return (
+    <article
+      className={cn(
+        "relative overflow-hidden rounded-3xl border p-4 transition sm:p-5",
+        earned
+          ? "border-amber-200/75 bg-[linear-gradient(145deg,rgba(255,247,214,0.98),rgba(233,207,122,0.92)_28%,rgba(176,126,36,0.9)_62%,rgba(255,244,202,0.96))] text-stone-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_18px_32px_rgba(176,126,36,0.2)] dark:border-amber-200/20 dark:bg-[linear-gradient(145deg,rgba(78,61,22,0.96),rgba(198,154,52,0.7)_30%,rgba(87,63,20,0.96)_62%,rgba(240,213,126,0.34))] dark:text-amber-50"
+          : "border-slate-300/70 bg-[linear-gradient(145deg,rgba(249,250,252,0.96),rgba(214,221,231,0.9)_32%,rgba(148,163,184,0.78)_66%,rgba(244,247,251,0.94))] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_14px_24px_rgba(148,163,184,0.14)] dark:border-slate-200/10 dark:bg-[linear-gradient(145deg,rgba(53,62,74,0.96),rgba(116,129,145,0.72)_30%,rgba(41,49,60,0.98)_66%,rgba(185,194,205,0.18))] dark:text-slate-100",
+      )}
+    >
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-3 top-0 h-16 rounded-b-[1.5rem]",
+          earned
+            ? "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_70%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,248,220,0.22),transparent_74%)]"
+            : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.82),transparent_72%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_76%)]",
+        )}
+      />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p
+            className={cn(
+              "text-sm",
+              earned ? "text-stone-700/85 dark:text-amber-100/80" : "text-slate-600 dark:text-slate-300/80",
+            )}
+          >
+            連續徽章
+          </p>
+          <p className="mt-2 text-2xl font-semibold">{days} 天</p>
+        </div>
+        {earned ? (
+          <BadgeCheck className="size-5 shrink-0 text-amber-800 drop-shadow-[0_1px_2px_rgba(255,255,255,0.55)] dark:text-amber-200" />
+        ) : (
+          <Lock className="size-5 shrink-0 text-slate-500 dark:text-slate-300/75" />
+        )}
+      </div>
+      <p
+        className={cn(
+          "mt-4 text-sm leading-6",
+          earned ? "text-stone-700 dark:text-amber-50/90" : "text-slate-600 dark:text-slate-200/82",
+        )}
+      >
+        {earned
+          ? "已領取，之後再次達到相同門檻不會重複發放。"
+          : `尚未達成，累積到連續 ${days} 天即可解鎖。`}
+      </p>
+    </article>
+  );
+}
+
 export default function ProfilePage() {
   const { currentUser, isLoading } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -125,6 +203,10 @@ export default function ProfilePage() {
   const selectedDateEntries = selectedDate
     ? (profileData?.month_entries ?? []).filter((entry) => entry.date === selectedDate)
     : [];
+  const streakSummary = profileData?.streak_summary ?? getDefaultStreakSummary();
+  const remainingDays = streakSummary.next_badge_days
+    ? Math.max(streakSummary.next_badge_days - streakSummary.current_streak, 0)
+    : 0;
 
   const loadProfile = useEffectEvent(async () => {
     setIsProfileLoading(true);
@@ -349,6 +431,45 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
+
+            <Card className="border-border/80 bg-card/85">
+              <CardHeader>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                  <div className="space-y-1 text-left">
+                    <CardTitle>連續徽章</CardTitle>
+                    <CardDescription className="max-w-2xl">
+                      曾達成的門檻會永久保留，不會因中斷而重複領取同一徽章。
+                    </CardDescription>
+                    <div className="rounded-3xl border bg-background/70 px-4 py-3 text-sm leading-6 text-muted-foreground">
+                        {streakSummary.next_badge_days
+                          ? `下一枚徽章是 ${streakSummary.next_badge_days} 天，再持續 ${remainingDays} 天就能達成。`
+                          : "所有連續徽章都已解鎖。"}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[18rem]">
+                    <div className="rounded-3xl border bg-background/70 px-4 py-3">
+                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Flame className="size-4 text-orange-500" />
+                        目前連續
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">{streakSummary.current_streak} 天</p>
+                    </div>
+                    <div className="rounded-3xl border bg-background/70 px-4 py-3">
+                      <p className="text-sm text-muted-foreground">最佳紀錄</p>
+                      <p className="mt-2 text-2xl font-semibold">{streakSummary.longest_streak} 天</p>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                  {streakSummary.badges.map((badge) => (
+                    <MetalBadgeCard key={badge.days} days={badge.days} earned={badge.earned} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
         </div>
       ) : (
