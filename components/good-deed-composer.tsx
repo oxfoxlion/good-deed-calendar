@@ -226,7 +226,7 @@ export function GoodDeedComposer({
 
       {isComposerOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-4"
           onClick={() => {
             if (isSubmitting) {
               return;
@@ -237,7 +237,7 @@ export function GoodDeedComposer({
           role="presentation"
         >
           <Card
-            className="relative w-full max-w-2xl border-border/80 bg-background/95"
+            className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden border-border/80 bg-background/95 sm:max-h-[calc(100vh-2rem)]"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -249,13 +249,13 @@ export function GoodDeedComposer({
               </div>
             ) : null}
 
-            <CardHeader className="space-y-5">
+            <CardHeader className="space-y-5 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
               <div className="relative flex flex-col gap-4 pr-12 md:flex-row md:items-start md:justify-between">
                 <div className="space-y-2">
                   <Badge className="rounded-full bg-primary/10 text-primary dark:bg-primary/15">
                     GOOD DEED ENTRY
                   </Badge>
-                  <CardTitle className="text-3xl">{draftDate}</CardTitle>
+                  <CardTitle className="text-2xl sm:text-3xl">{draftDate}</CardTitle>
                   <CardDescription>今天做了什麼好事。</CardDescription>
                 </div>
                 <Button
@@ -272,7 +272,7 @@ export function GoodDeedComposer({
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-5 overflow-y-auto px-4 pt-2 pb-4 sm:px-6 sm:pb-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="modal-date">
                   日期
@@ -371,7 +371,7 @@ export function GoodDeedComposer({
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end border-t border-border/70 pt-4">
                 <Button className="h-11 min-w-32 rounded-2xl" disabled={isSubmitting} onClick={createEntry}>
                   {isSubmitting ? "發送中..." : "發送好事"}
                 </Button>
