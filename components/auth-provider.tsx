@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 type AuthenticatedUser = {
   isLoggedIn: true;
@@ -43,6 +44,7 @@ const guestUser: GuestUser = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const AUTH_ME_RETRY_DELAYS_MS = [180, 420];
 
 function toAuthenticatedUser(user: {
   id: string;
@@ -64,44 +66,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser>(guestUser);
   const [isLoading, setIsLoading] = useState(true);
 
-  async function refreshCurrentUser() {
-    try {
+  const sleep = useCallback(async (ms: number) => {
+    await new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }, []);
+
+  const fetchCurrentUserWithRetry = useCallback(async () => {
+    for (let attempt = 0; attempt <= AUTH_ME_RETRY_DELAYS_MS.length; attempt += 1) {
       const response = await fetch("/api/auth/me", {
         method: "GET",
         credentials: "include",
         cache: "no-store",
       });
 
-      if (!response.ok) {
-        setCurrentUser(guestUser);
-        return;
-      }
-
-      const data = (await response.json()) as {
-        user?: {
-          id: string;
-          nickname: string;
-          created_at: string;
-          last_login_at?: string | null;
+      if (response.ok) {
+        const data = (await response.json()) as {
+          user?: {
+            id: string;
+            nickname: string;
+            created_at: string;
+            last_login_at?: string | null;
+          };
         };
-      };
 
-      if (!data.user) {
-        setCurrentUser(guestUser);
-        return;
+        return data.user ? toAuthenticatedUser(data.user) : guestUser;
       }
 
-      setCurrentUser(toAuthenticatedUser(data.user));
+      const shouldRetry = response.status === 401 && attempt < AUTH_ME_RETRY_DELAYS_MS.length;
+      if (!shouldRetry) {
+        return guestUser;
+      }
+
+      await sleep(AUTH_ME_RETRY_DELAYS_MS[attempt]);
+    }
+
+    return guestUser;
+  }, [sleep]);
+
+  const refreshCurrentUser = useCallback(async () => {
+    try {
+      const nextUser = await fetchCurrentUserWithRetry();
+      setCurrentUser(nextUser);
     } catch {
       setCurrentUser(guestUser);
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [fetchCurrentUserWithRetry]);
 
   useEffect(() => {
     void refreshCurrentUser();
-  }, []);
+  }, [refreshCurrentUser]);
 
   async function login(input: { nickname: string; pin: string }) {
     try {
