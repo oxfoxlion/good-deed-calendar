@@ -14,6 +14,10 @@ export type CreateGoodDeedInput = Pick<GoodDeedEntry, "nickname" | "content" | "
   hide_from_global_feed?: boolean;
 };
 
+export type UpdateGoodDeedInput = Pick<GoodDeedEntry, "content" | "date"> & {
+  hide_from_global_feed?: boolean;
+};
+
 type NotificationResult = {
   sent: boolean;
   reason?: string;
@@ -80,4 +84,52 @@ export async function addEntry(
     created: Boolean(data.created),
     notification: data.notification ?? { sent: false, reason: "unknown" },
   } satisfies CreateEntryResult;
+}
+
+export async function updateEntry(
+  entryId: string,
+  input: UpdateGoodDeedInput,
+  options?: { cookieHeader?: string },
+) {
+  const response = await fetch(`${getCalendarApiBaseUrl()}/good_calendar/entries/${entryId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.cookieHeader ? { cookie: options.cookieHeader } : {}),
+    },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+
+  const data = (await response.json()) as {
+    entry?: GoodDeedEntry;
+    message?: string;
+  };
+
+  if (!response.ok || !data.entry) {
+    throw new Error(data.message ?? `Failed to update entry: ${response.status}`);
+  }
+
+  return data.entry;
+}
+
+export async function deleteEntry(entryId: string, options?: { cookieHeader?: string }) {
+  const response = await fetch(`${getCalendarApiBaseUrl()}/good_calendar/entries/${entryId}`, {
+    method: "DELETE",
+    headers: {
+      ...(options?.cookieHeader ? { cookie: options.cookieHeader } : {}),
+    },
+    cache: "no-store",
+  });
+
+  const data = (await response.json()) as {
+    deleted?: boolean;
+    message?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.message ?? `Failed to delete entry: ${response.status}`);
+  }
+
+  return { deleted: data.deleted === true };
 }

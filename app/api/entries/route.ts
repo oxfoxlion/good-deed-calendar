@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { addEntry, listEntries } from "@/lib/storage";
+import { addEntry, deleteEntry, listEntries, updateEntry } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -116,6 +116,84 @@ export async function POST(request: Request) {
     return NextResponse.json({ entry, created, notification });
   } catch (error) {
     const message = error instanceof Error ? error.message : "新增失敗，請稍後再試。";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  const body = (await request.json()) as {
+    id?: string;
+    content?: string;
+    date?: string;
+    hide_from_global_feed?: boolean;
+  };
+
+  const id = body.id?.trim();
+  const content = body.content?.trim();
+  const date = body.date?.trim();
+  const hideFromGlobalFeed = body.hide_from_global_feed === true;
+
+  if (!id) {
+    return NextResponse.json({ error: "缺少紀錄 id。" }, { status: 400 });
+  }
+
+  if (!date || !datePattern.test(date)) {
+    return NextResponse.json(
+      { error: "日期格式不正確，需為 YYYY-MM-DD。" },
+      { status: 400 },
+    );
+  }
+
+  const dateValidation = validateEntryDate(date);
+  if (!dateValidation.isValid) {
+    return NextResponse.json(
+      {
+        error: `只能新增本月或上個月，且不可超過今天（可選 ${dateValidation.earliestAllowedDate} 到 ${dateValidation.latestAllowedDate}）。`,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (!content || content.length > 280) {
+    return NextResponse.json(
+      { error: "請輸入 1 到 280 字的好事內容。" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const entry = await updateEntry(
+      id,
+      {
+        content,
+        date,
+        hide_from_global_feed: hideFromGlobalFeed,
+      },
+      { cookieHeader: request.headers.get("cookie") ?? "" },
+    );
+
+    return NextResponse.json({ entry });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "編輯失敗，請稍後再試。";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const body = (await request.json()) as {
+    id?: string;
+  };
+  const id = body.id?.trim();
+
+  if (!id) {
+    return NextResponse.json({ error: "缺少紀錄 id。" }, { status: 400 });
+  }
+
+  try {
+    const result = await deleteEntry(id, { cookieHeader: request.headers.get("cookie") ?? "" });
+    return NextResponse.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "刪除失敗，請稍後再試。";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

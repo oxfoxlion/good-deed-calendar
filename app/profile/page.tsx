@@ -1,18 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useEffectEvent, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Flame, UserRound } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, Flame, Pencil, Save, Trash2, UserRound, X } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { GoodDeedComposer } from "@/components/good-deed-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const CALENDAR_TIME_ZONE = "Asia/Taipei";
 const STREAK_BADGE_DAYS = [7, 14, 28, 50, 100];
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 type ProfileData = {
   month: string;
@@ -32,12 +34,14 @@ type ProfileData = {
     id: string;
     date: string;
     content: string;
+    hide_from_global_feed?: boolean;
     created_at: string;
   }>;
   recent_entries: Array<{
     id: string;
     date: string;
     content: string;
+    hide_from_global_feed?: boolean;
     created_at: string;
   }>;
 };
@@ -182,6 +186,13 @@ export default function ProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editHideFromGlobalFeed, setEditHideFromGlobalFeed] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isDeletingEntryId, setIsDeletingEntryId] = useState<string | null>(null);
+  const [entryActionError, setEntryActionError] = useState<string | null>(null);
   const calendarDays = buildCalendarDays(currentMonth);
   const activeDateSet = new Set(profileData?.active_dates_this_month ?? []);
   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -195,7 +206,7 @@ export default function ProfilePage() {
     ? Math.max(streakSummary.next_badge_days - streakSummary.current_streak, 0)
     : 0;
 
-  const loadProfile = useEffectEvent(async () => {
+  const loadProfile = useCallback(async () => {
     setIsProfileLoading(true);
 
     try {
@@ -218,7 +229,7 @@ export default function ProfilePage() {
     } finally {
       setIsProfileLoading(false);
     }
-  });
+  }, [monthKey]);
 
   useEffect(() => {
     if (!currentUser.isLoggedIn) {
@@ -228,10 +239,12 @@ export default function ProfilePage() {
     }
 
     void loadProfile();
-  }, [currentUser.isLoggedIn, monthKey]);
+  }, [currentUser.isLoggedIn, loadProfile]);
 
   useEffect(() => {
     setSelectedDate(null);
+    setEditingEntryId(null);
+    setEntryActionError(null);
   }, [monthKey]);
 
   useEffect(() => {
@@ -248,7 +261,117 @@ export default function ProfilePage() {
     return () => {
       window.removeEventListener("good-deed:entry-created", handleEntryCreated);
     };
-  }, [currentUser.isLoggedIn]);
+  }, [currentUser.isLoggedIn, loadProfile]);
+
+  function startEditingEntry(entry: ProfileData["recent_entries"][number]) {
+    setEditingEntryId(entry.id);
+    setEditContent(entry.content);
+    setEditDate(entry.date);
+    setEditHideFromGlobalFeed(entry.hide_from_global_feed === true);
+    setEntryActionError(null);
+  }
+
+  function cancelEditingEntry() {
+    setEditingEntryId(null);
+    setEditContent("");
+    setEditDate("");
+    setEditHideFromGlobalFeed(false);
+    setEntryActionError(null);
+  }
+
+  async function handleSaveEntry() {
+    const normalizedContent = editContent.trim();
+    const normalizedDate = editDate.trim();
+
+    if (!editingEntryId) {
+      return;
+    }
+
+    if (!normalizedContent || normalizedContent.length > 280) {
+      setEntryActionError("請輸入 1 到 280 字的好事內容。");
+      return;
+    }
+
+    if (!normalizedDate || !datePattern.test(normalizedDate)) {
+      setEntryActionError("日期格式不正確，需為 YYYY-MM-DD。");
+      return;
+    }
+
+    if (normalizedDate < earliestAllowedDate || normalizedDate > latestAllowedDate) {
+      setEntryActionError(
+        `只能新增本月或上個月，且不可超過今天（可選 ${earliestAllowedDate} 到 ${latestAllowedDate}）。`,
+      );
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEntryActionError(null);
+
+    try {
+      const response = await fetch("/api/entries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          id: editingEntryId,
+          content: normalizedContent,
+          date: normalizedDate,
+          hide_from_global_feed: editHideFromGlobalFeed,
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setEntryActionError(data.error ?? "編輯失敗，請稍後再試。");
+        return;
+      }
+
+      if (selectedDate) {
+        setSelectedDate(normalizedDate);
+      }
+      cancelEditingEntry();
+      await loadProfile();
+    } catch {
+      setEntryActionError("編輯失敗，請稍後再試。");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
+  async function handleDeleteEntry(entryId: string) {
+    const confirmed = window.confirm("確定要刪除這筆好事紀錄嗎？");
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingEntryId(entryId);
+    setEntryActionError(null);
+
+    try {
+      const response = await fetch("/api/entries", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id: entryId }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setEntryActionError(data.error ?? "刪除失敗，請稍後再試。");
+        return;
+      }
+
+      if (editingEntryId === entryId) {
+        cancelEditingEntry();
+      }
+
+      await loadProfile();
+    } catch {
+      setEntryActionError("刪除失敗，請稍後再試。");
+    } finally {
+      setIsDeletingEntryId(null);
+    }
+  }
 
   return (
     <DashboardShell
@@ -378,6 +501,11 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
+                {entryActionError ? (
+                  <div className="rounded-3xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+                    {entryActionError}
+                  </div>
+                ) : null}
                 {isProfileLoading ? (
                   <div className="rounded-3xl border border-dashed bg-secondary/35 p-4 text-sm text-muted-foreground">
                     正在讀取個人紀錄...
@@ -386,12 +514,96 @@ export default function ProfilePage() {
                   selectedDateEntries.length ? (
                     selectedDateEntries.map((entry) => (
                       <article key={entry.id} className="rounded-3xl border bg-background/75 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
-                            {entry.content}
-                          </p>
-                          <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
-                        </div>
+                        {editingEntryId === entry.id ? (
+                          <div className="space-y-3">
+                            <Textarea
+                              value={editContent}
+                              onChange={(event) => setEditContent(event.target.value)}
+                              className="min-h-24"
+                              maxLength={280}
+                            />
+                            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                              <input
+                                type="date"
+                                value={editDate}
+                                min={earliestAllowedDate}
+                                max={latestAllowedDate}
+                                onChange={(event) => setEditDate(event.target.value)}
+                                className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                              />
+                              <Button
+                                type="button"
+                                variant={editHideFromGlobalFeed ? "default" : "outline"}
+                                onClick={() => setEditHideFromGlobalFeed((value) => !value)}
+                                className="w-full sm:w-auto"
+                              >
+                                {editHideFromGlobalFeed ? "不公開" : "公開"}
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => void handleSaveEntry()}
+                                disabled={isSavingEdit}
+                              >
+                                <Save className="size-4" />
+                                儲存
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEditingEntry}
+                                disabled={isSavingEdit}
+                              >
+                                <X className="size-4" />
+                                取消
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
+                                {entry.content}
+                              </p>
+                              <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={cn(
+                                  "rounded-full px-2.5 py-1 text-xs",
+                                  entry.hide_from_global_feed
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                    : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                                )}
+                              >
+                                {entry.hide_from_global_feed ? "不公開" : "公開"}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEditingEntry(entry)}
+                              >
+                                <Pencil className="size-4" />
+                                編輯
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => void handleDeleteEntry(entry.id)}
+                                disabled={isDeletingEntryId === entry.id}
+                              >
+                                <Trash2 className="size-4" />
+                                刪除
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </article>
                     ))
                   ) : (
@@ -402,12 +614,96 @@ export default function ProfilePage() {
                 ) : profileData?.recent_entries.length ? (
                   profileData.recent_entries.map((entry) => (
                     <article key={entry.id} className="rounded-3xl border bg-background/75 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
-                          {entry.content}
-                        </p>
-                        <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
-                      </div>
+                      {editingEntryId === entry.id ? (
+                        <div className="space-y-3">
+                          <Textarea
+                            value={editContent}
+                            onChange={(event) => setEditContent(event.target.value)}
+                            className="min-h-24"
+                            maxLength={280}
+                          />
+                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                            <input
+                              type="date"
+                              value={editDate}
+                              min={earliestAllowedDate}
+                              max={latestAllowedDate}
+                              onChange={(event) => setEditDate(event.target.value)}
+                              className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                            />
+                            <Button
+                              type="button"
+                              variant={editHideFromGlobalFeed ? "default" : "outline"}
+                              onClick={() => setEditHideFromGlobalFeed((value) => !value)}
+                              className="w-full sm:w-auto"
+                            >
+                              {editHideFromGlobalFeed ? "不公開" : "公開"}
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => void handleSaveEntry()}
+                              disabled={isSavingEdit}
+                            >
+                              <Save className="size-4" />
+                              儲存
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEditingEntry}
+                              disabled={isSavingEdit}
+                            >
+                              <X className="size-4" />
+                              取消
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
+                              {entry.content}
+                            </p>
+                            <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={cn(
+                                "rounded-full px-2.5 py-1 text-xs",
+                                entry.hide_from_global_feed
+                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                  : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                              )}
+                            >
+                              {entry.hide_from_global_feed ? "不公開" : "公開"}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditingEntry(entry)}
+                            >
+                              <Pencil className="size-4" />
+                              編輯
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => void handleDeleteEntry(entry.id)}
+                              disabled={isDeletingEntryId === entry.id}
+                            >
+                              <Trash2 className="size-4" />
+                              刪除
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </article>
                   ))
                 ) : (
