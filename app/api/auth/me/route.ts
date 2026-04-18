@@ -6,11 +6,17 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
+    const cookieHeader = request.headers.get("cookie") ?? "";
+
+    if (!cookieHeader.includes("good_calendar_session=")) {
+      return NextResponse.json({ user: null }, { status: 200 });
+    }
+
     const response = await fetch(`${getCalendarApiBaseUrl()}/good_calendar/auth/me`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        cookie: request.headers.get("cookie") ?? "",
+        cookie: cookieHeader,
       },
       cache: "no-store",
     });
