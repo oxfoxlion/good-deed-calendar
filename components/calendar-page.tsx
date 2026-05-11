@@ -282,7 +282,7 @@ export function CalendarPage() {
                         <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                           {entry.content}
                         </p>
-                        <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
+                        <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 5} / 10</p>
                       </div>
                       <Badge variant="secondary" className="shrink-0">
                         {entry.date}
@@ -304,7 +304,7 @@ export function CalendarPage() {
                       <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                         {entry.content}
                       </p>
-                      <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
+                      <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 5} / 10</p>
                     </div>
                     <Badge variant="secondary" className="shrink-0">
                       {entry.date}
@@ -423,7 +423,7 @@ export function CalendarPage() {
                           <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                             {entry.content}
                           </p>
-                          <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
+                          <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 5} / 10</p>
                         </div>
                         <Badge variant="secondary" className="shrink-0">
                           {entry.date}
@@ -445,7 +445,7 @@ export function CalendarPage() {
                         <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                           {entry.content}
                         </p>
-                        <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
+                        <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 5} / 10</p>
                       </div>
                       <Badge variant="secondary" className="shrink-0">
                         {entry.date}

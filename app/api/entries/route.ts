@@ -28,11 +28,11 @@ function toDateKey(year: number, month: number, day = 1) {
 
 function normalizeMoodTemperature(value: unknown) {
   if (value === undefined || value === null || value === "") {
-    return 3;
+    return 5;
   }
 
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10) {
     return null;
   }
 
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   }
   if (moodTemperature === null) {
     return NextResponse.json(
-      { error: "心情溫度需為 1 到 5。" },
+      { error: "心情溫度需為 1 到 10。" },
       { status: 400 },
     );
   }
@@ -186,7 +186,7 @@ export async function PATCH(request: Request) {
   }
   if (moodTemperature === null) {
     return NextResponse.json(
-      { error: "心情溫度需為 1 到 5。" },
+      { error: "心情溫度需為 1 到 10。" },
       { status: 400 },
     );
   }

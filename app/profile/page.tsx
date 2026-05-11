@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Flame, Pencil, Save, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Flame, Info, Pencil, Save, Trash2, UserRound, X } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -15,6 +15,19 @@ import { cn } from "@/lib/utils";
 const CALENDAR_TIME_ZONE = "Asia/Taipei";
 const STREAK_BADGE_DAYS = [7, 14, 28, 50, 100];
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const moodScaleLabels: Record<number, string> = {
+  1: "心情糟透了，但我還是試著練習找到小小的好事",
+  2: "心情偏低，先從一件小好事開始。",
+  3: "有點低落，但仍願意留意生活中的亮點。",
+  4: "心情還在整理中，慢慢回穩。",
+  5: "普通不算差也不算好",
+  6: "心情還不錯，開始有一點能量。",
+  7: "感覺偏好，今天有不少值得感謝的事。",
+  8: "心情很好，內在狀態很順。",
+  9: "非常好，充滿動力與滿足感。",
+  10: "非常幸福內心感到充實",
+};
+const moodGuideSummary = `1：${moodScaleLabels[1]}\n5：${moodScaleLabels[5]}\n10：${moodScaleLabels[10]}`;
 
 type ProfileData = {
   month: string;
@@ -196,6 +209,8 @@ export default function ProfilePage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeletingEntryId, setIsDeletingEntryId] = useState<string | null>(null);
   const [entryActionError, setEntryActionError] = useState<string | null>(null);
+  const [moodGuideTop, setMoodGuideTop] = useState(96);
+  const [moodGuideAnchor, setMoodGuideAnchor] = useState<HTMLElement | null>(null);
   const calendarDays = buildCalendarDays(currentMonth);
   const activeDateSet = new Set(profileData?.active_dates_this_month ?? []);
   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -271,7 +286,7 @@ export default function ProfilePage() {
     setEditContent(entry.content);
     setEditDate(entry.date);
     setEditHideFromGlobalFeed(entry.hide_from_global_feed === true);
-    setEditMoodTemperature(entry.mood_temperature ?? 3);
+    setEditMoodTemperature(entry.mood_temperature ?? 5);
     setEntryActionError(null);
   }
 
@@ -283,6 +298,29 @@ export default function ProfilePage() {
     setEditMoodTemperature(3);
     setEntryActionError(null);
   }
+
+  function syncMoodGuideTop(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    setMoodGuideTop(target.getBoundingClientRect().bottom + 8);
+    setMoodGuideAnchor(target);
+  }
+
+  useEffect(() => {
+    if (!moodGuideAnchor) {
+      return;
+    }
+
+    let frameId = 0;
+    const sync = () => {
+      setMoodGuideTop(moodGuideAnchor.getBoundingClientRect().bottom + 8);
+      frameId = window.requestAnimationFrame(sync);
+    };
+
+    frameId = window.requestAnimationFrame(sync);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [moodGuideAnchor]);
 
   async function handleSaveEntry() {
     const normalizedContent = editContent.trim();
@@ -547,12 +585,37 @@ export default function ProfilePage() {
                               </Button>
                             </div>
                             <div className="space-y-2">
-                              <p className="text-sm text-muted-foreground">心情溫度 {editMoodTemperature} / 5</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-muted-foreground">心情溫度 {editMoodTemperature} / 10</p>
+                                <div className="group relative">
+                                  <button
+                                    type="button"
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/80 text-muted-foreground"
+                                    aria-label="心情溫度說明"
+                                    title={moodGuideSummary}
+                                    onMouseEnter={(event) => syncMoodGuideTop(event.currentTarget)}
+                                    onMouseLeave={() => setMoodGuideAnchor(null)}
+                                    onFocus={(event) => syncMoodGuideTop(event.currentTarget)}
+                                    onBlur={() => setMoodGuideAnchor(null)}
+                                    onClick={(event) => syncMoodGuideTop(event.currentTarget)}
+                                  >
+                                    <Info className="size-3.5" />
+                                  </button>
+                                  <div
+                                    className="pointer-events-none fixed left-1/2 top-[var(--mood-guide-top)] z-20 hidden w-[min(14rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-border bg-popover p-2 text-xs text-popover-foreground shadow-md group-hover:block group-focus-within:block sm:absolute sm:left-0 sm:top-7 sm:w-72 sm:translate-x-0"
+                                    style={{ "--mood-guide-top": `${moodGuideTop}px` } as React.CSSProperties}
+                                  >
+                                    <p>1：{moodScaleLabels[1]}</p>
+                                    <p>5：{moodScaleLabels[5]}</p>
+                                    <p>10：{moodScaleLabels[10]}</p>
+                                  </div>
+                                </div>
+                              </div>
                               <div className="px-1">
                                 <input
                                   type="range"
                                   min={1}
-                                  max={5}
+                                  max={10}
                                   step={1}
                                   dir="ltr"
                                   value={editMoodTemperature}
@@ -561,15 +624,17 @@ export default function ProfilePage() {
                                   aria-label="心情溫度滑桿"
                                 />
                                 <div className="relative mt-2 h-4 text-xs text-muted-foreground">
-                                  {[1, 2, 3, 4, 5].map((level) => (
+                                  {Array.from({ length: 10 }, (_, index) => index + 1).map((level) => (
                                     <span
                                       key={level}
+                                      title={moodScaleLabels[level]}
+                                      aria-label={moodScaleLabels[level]}
                                       className={cn(
                                         "absolute top-0 -translate-x-1/2",
                                         level === 1 && "left-0 translate-x-0",
-                                        level === 5 && "left-full -translate-x-full",
+                                        level === 10 && "left-full -translate-x-full",
                                       )}
-                                      style={level > 1 && level < 5 ? { left: `${((level - 1) / 4) * 100}%` } : undefined}
+                                      style={level > 1 && level < 10 ? { left: `${((level - 1) / 9) * 100}%` } : undefined}
                                     >
                                       {level}
                                     </span>
@@ -607,7 +672,7 @@ export default function ProfilePage() {
                               </p>
                               <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
+                            <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 5} / 10</p>
                             <div className="flex flex-wrap items-center gap-2">
                               <span
                                 className={cn(
@@ -679,12 +744,37 @@ export default function ProfilePage() {
                             </Button>
                           </div>
                           <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">心情溫度 {editMoodTemperature} / 5</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground">心情溫度 {editMoodTemperature} / 10</p>
+                              <div className="group relative">
+                                <button
+                                  type="button"
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/80 text-muted-foreground"
+                                  aria-label="心情溫度說明"
+                                  title={moodGuideSummary}
+                                  onMouseEnter={(event) => syncMoodGuideTop(event.currentTarget)}
+                                  onMouseLeave={() => setMoodGuideAnchor(null)}
+                                  onFocus={(event) => syncMoodGuideTop(event.currentTarget)}
+                                  onBlur={() => setMoodGuideAnchor(null)}
+                                  onClick={(event) => syncMoodGuideTop(event.currentTarget)}
+                                >
+                                  <Info className="size-3.5" />
+                                </button>
+                                <div
+                                  className="pointer-events-none fixed left-1/2 top-[var(--mood-guide-top)] z-20 hidden w-[min(14rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-border bg-popover p-2 text-xs text-popover-foreground shadow-md group-hover:block group-focus-within:block sm:absolute sm:left-0 sm:top-7 sm:w-72 sm:translate-x-0"
+                                  style={{ "--mood-guide-top": `${moodGuideTop}px` } as React.CSSProperties}
+                                >
+                                  <p>1：{moodScaleLabels[1]}</p>
+                                  <p>5：{moodScaleLabels[5]}</p>
+                                  <p>10：{moodScaleLabels[10]}</p>
+                                </div>
+                              </div>
+                            </div>
                             <div className="px-1">
                               <input
                                 type="range"
                                 min={1}
-                                max={5}
+                                max={10}
                                 step={1}
                                 dir="ltr"
                                 value={editMoodTemperature}
@@ -693,15 +783,17 @@ export default function ProfilePage() {
                                 aria-label="心情溫度滑桿"
                               />
                               <div className="relative mt-2 h-4 text-xs text-muted-foreground">
-                                {[1, 2, 3, 4, 5].map((level) => (
+                                {Array.from({ length: 10 }, (_, index) => index + 1).map((level) => (
                                   <span
                                     key={level}
+                                    title={moodScaleLabels[level]}
+                                    aria-label={moodScaleLabels[level]}
                                     className={cn(
                                       "absolute top-0 -translate-x-1/2",
                                       level === 1 && "left-0 translate-x-0",
-                                      level === 5 && "left-full -translate-x-full",
+                                      level === 10 && "left-full -translate-x-full",
                                     )}
-                                    style={level > 1 && level < 5 ? { left: `${((level - 1) / 4) * 100}%` } : undefined}
+                                    style={level > 1 && level < 10 ? { left: `${((level - 1) / 9) * 100}%` } : undefined}
                                   >
                                     {level}
                                   </span>
@@ -739,7 +831,7 @@ export default function ProfilePage() {
                             </p>
                             <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
+                          <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 5} / 10</p>
                           <div className="flex flex-wrap items-center gap-2">
                             <span
                               className={cn(
