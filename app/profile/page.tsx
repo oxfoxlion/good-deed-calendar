@@ -557,7 +557,7 @@ export default function ProfilePage() {
                                   dir="ltr"
                                   value={editMoodTemperature}
                                   onChange={(event) => setEditMoodTemperature(Number(event.target.value))}
-                                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-amber-300 to-rose-400 accent-slate-400"
+                                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-300 via-amber-200 to-rose-300 accent-white"
                                   aria-label="心情溫度滑桿"
                                 />
                                 <div className="relative mt-2 h-4 text-xs text-muted-foreground">
@@ -689,7 +689,7 @@ export default function ProfilePage() {
                                 dir="ltr"
                                 value={editMoodTemperature}
                                 onChange={(event) => setEditMoodTemperature(Number(event.target.value))}
-                                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-amber-300 to-rose-400 accent-slate-400"
+                                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-300 via-amber-200 to-rose-300 accent-white"
                                 aria-label="心情溫度滑桿"
                               />
                               <div className="relative mt-2 h-4 text-xs text-muted-foreground">
