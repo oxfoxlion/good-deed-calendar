@@ -5,6 +5,7 @@ export type GoodDeedEntry = {
   content: string;
   skip_discord_notification?: boolean;
   hide_from_global_feed?: boolean;
+  mood_temperature?: number;
   date: string;
   created_at: string;
 };
@@ -12,10 +13,12 @@ export type GoodDeedEntry = {
 export type CreateGoodDeedInput = Pick<GoodDeedEntry, "nickname" | "content" | "date"> & {
   skip_discord_notification?: boolean;
   hide_from_global_feed?: boolean;
+  mood_temperature?: number;
 };
 
 export type UpdateGoodDeedInput = Pick<GoodDeedEntry, "content" | "date"> & {
   hide_from_global_feed?: boolean;
+  mood_temperature?: number;
 };
 
 type NotificationResult = {

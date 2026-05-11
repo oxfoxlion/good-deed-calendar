@@ -26,6 +26,19 @@ function toDateKey(year: number, month: number, day = 1) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function normalizeMoodTemperature(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return 3;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function validateEntryDate(date: string) {
   const { year, month, day } = getCalendarTodayParts();
   const latestAllowedDate = toDateKey(year, month, day);
@@ -63,6 +76,7 @@ export async function POST(request: Request) {
     date?: string;
     skip_discord_notification?: boolean;
     hide_from_global_feed?: boolean;
+    mood_temperature?: number;
   };
 
   const nickname = body.nickname?.trim();
@@ -70,6 +84,7 @@ export async function POST(request: Request) {
   const date = body.date?.trim();
   const skipDiscordNotification = body.skip_discord_notification === true;
   const hideFromGlobalFeed = body.hide_from_global_feed === true;
+  const moodTemperature = normalizeMoodTemperature(body.mood_temperature);
 
   if (nickname && nickname.length > 10) {
     return NextResponse.json(
@@ -101,6 +116,12 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (moodTemperature === null) {
+    return NextResponse.json(
+      { error: "心情溫度需為 1 到 5。" },
+      { status: 400 },
+    );
+  }
 
   try {
     const { entry, created, notification } = await addEntry(
@@ -110,6 +131,7 @@ export async function POST(request: Request) {
         date,
         skip_discord_notification: skipDiscordNotification,
         hide_from_global_feed: hideFromGlobalFeed,
+        mood_temperature: moodTemperature,
       },
       { cookieHeader: request.headers.get("cookie") ?? "" },
     );
@@ -126,12 +148,14 @@ export async function PATCH(request: Request) {
     content?: string;
     date?: string;
     hide_from_global_feed?: boolean;
+    mood_temperature?: number;
   };
 
   const id = body.id?.trim();
   const content = body.content?.trim();
   const date = body.date?.trim();
   const hideFromGlobalFeed = body.hide_from_global_feed === true;
+  const moodTemperature = normalizeMoodTemperature(body.mood_temperature);
 
   if (!id) {
     return NextResponse.json({ error: "缺少紀錄 id。" }, { status: 400 });
@@ -160,6 +184,12 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   }
+  if (moodTemperature === null) {
+    return NextResponse.json(
+      { error: "心情溫度需為 1 到 5。" },
+      { status: 400 },
+    );
+  }
 
   try {
     const entry = await updateEntry(
@@ -168,6 +198,7 @@ export async function PATCH(request: Request) {
         content,
         date,
         hide_from_global_feed: hideFromGlobalFeed,
+        mood_temperature: moodTemperature,
       },
       { cookieHeader: request.headers.get("cookie") ?? "" },
     );

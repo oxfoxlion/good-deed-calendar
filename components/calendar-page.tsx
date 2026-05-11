@@ -18,6 +18,7 @@ type Entry = {
   content: string;
   skip_discord_notification?: boolean;
   hide_from_global_feed?: boolean;
+  mood_temperature?: number;
   date: string;
   created_at: string;
 };
@@ -281,6 +282,7 @@ export function CalendarPage() {
                         <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                           {entry.content}
                         </p>
+                        <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
                       </div>
                       <Badge variant="secondary" className="shrink-0">
                         {entry.date}
@@ -302,6 +304,7 @@ export function CalendarPage() {
                       <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                         {entry.content}
                       </p>
+                      <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
                     </div>
                     <Badge variant="secondary" className="shrink-0">
                       {entry.date}
@@ -314,8 +317,8 @@ export function CalendarPage() {
         </Card>
       </div>
 
-      <div className="hidden gap-6 xl:grid xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
-        <Card ref={calendarCardRef} className="border-border/80 xl:h-full">
+      <div className="hidden gap-6 xl:grid xl:grid-cols-[minmax(0,1.55fr)_minmax(0,0.95fr)] xl:items-stretch">
+        <Card ref={calendarCardRef} className="w-full border-border/80 xl:h-full">
           <CardHeader className="space-y-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
@@ -392,7 +395,7 @@ export function CalendarPage() {
         </Card>
 
         <div
-          className="flex min-h-0 w-full flex-col gap-6"
+          className="flex min-h-0 min-w-0 w-full flex-col gap-6"
           style={isXlViewport && calendarCardHeight ? { height: `${calendarCardHeight}px` } : undefined}
         >
           <GoodDeedComposer
@@ -420,6 +423,7 @@ export function CalendarPage() {
                           <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                             {entry.content}
                           </p>
+                          <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
                         </div>
                         <Badge variant="secondary" className="shrink-0">
                           {entry.date}
@@ -441,6 +445,7 @@ export function CalendarPage() {
                         <p className="break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                           {entry.content}
                         </p>
+                        <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
                       </div>
                       <Badge variant="secondary" className="shrink-0">
                         {entry.date}

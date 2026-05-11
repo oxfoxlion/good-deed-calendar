@@ -35,6 +35,7 @@ type ProfileData = {
     date: string;
     content: string;
     hide_from_global_feed?: boolean;
+    mood_temperature?: number;
     created_at: string;
   }>;
   recent_entries: Array<{
@@ -42,6 +43,7 @@ type ProfileData = {
     date: string;
     content: string;
     hide_from_global_feed?: boolean;
+    mood_temperature?: number;
     created_at: string;
   }>;
 };
@@ -190,6 +192,7 @@ export default function ProfilePage() {
   const [editContent, setEditContent] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editHideFromGlobalFeed, setEditHideFromGlobalFeed] = useState(false);
+  const [editMoodTemperature, setEditMoodTemperature] = useState(3);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeletingEntryId, setIsDeletingEntryId] = useState<string | null>(null);
   const [entryActionError, setEntryActionError] = useState<string | null>(null);
@@ -268,6 +271,7 @@ export default function ProfilePage() {
     setEditContent(entry.content);
     setEditDate(entry.date);
     setEditHideFromGlobalFeed(entry.hide_from_global_feed === true);
+    setEditMoodTemperature(entry.mood_temperature ?? 3);
     setEntryActionError(null);
   }
 
@@ -276,6 +280,7 @@ export default function ProfilePage() {
     setEditContent("");
     setEditDate("");
     setEditHideFromGlobalFeed(false);
+    setEditMoodTemperature(3);
     setEntryActionError(null);
   }
 
@@ -317,6 +322,7 @@ export default function ProfilePage() {
           content: normalizedContent,
           date: normalizedDate,
           hide_from_global_feed: editHideFromGlobalFeed,
+          mood_temperature: editMoodTemperature,
         }),
       });
 
@@ -540,6 +546,37 @@ export default function ProfilePage() {
                                 {editHideFromGlobalFeed ? "不公開" : "公開"}
                               </Button>
                             </div>
+                            <div className="space-y-2">
+                              <p className="text-sm text-muted-foreground">心情溫度 {editMoodTemperature} / 5</p>
+                              <div className="px-1">
+                                <input
+                                  type="range"
+                                  min={1}
+                                  max={5}
+                                  step={1}
+                                  dir="ltr"
+                                  value={editMoodTemperature}
+                                  onChange={(event) => setEditMoodTemperature(Number(event.target.value))}
+                                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-amber-300 to-rose-400 accent-slate-400"
+                                  aria-label="心情溫度滑桿"
+                                />
+                                <div className="relative mt-2 h-4 text-xs text-muted-foreground">
+                                  {[1, 2, 3, 4, 5].map((level) => (
+                                    <span
+                                      key={level}
+                                      className={cn(
+                                        "absolute top-0 -translate-x-1/2",
+                                        level === 1 && "left-0 translate-x-0",
+                                        level === 5 && "left-full -translate-x-full",
+                                      )}
+                                      style={level > 1 && level < 5 ? { left: `${((level - 1) / 4) * 100}%` } : undefined}
+                                    >
+                                      {level}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
                             <div className="flex flex-wrap gap-2">
                               <Button
                                 type="button"
@@ -570,6 +607,7 @@ export default function ProfilePage() {
                               </p>
                               <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
                             </div>
+                            <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
                             <div className="flex flex-wrap items-center gap-2">
                               <span
                                 className={cn(
@@ -640,6 +678,37 @@ export default function ProfilePage() {
                               {editHideFromGlobalFeed ? "不公開" : "公開"}
                             </Button>
                           </div>
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">心情溫度 {editMoodTemperature} / 5</p>
+                            <div className="px-1">
+                              <input
+                                type="range"
+                                min={1}
+                                max={5}
+                                step={1}
+                                dir="ltr"
+                                value={editMoodTemperature}
+                                onChange={(event) => setEditMoodTemperature(Number(event.target.value))}
+                                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-amber-300 to-rose-400 accent-slate-400"
+                                aria-label="心情溫度滑桿"
+                              />
+                              <div className="relative mt-2 h-4 text-xs text-muted-foreground">
+                                {[1, 2, 3, 4, 5].map((level) => (
+                                  <span
+                                    key={level}
+                                    className={cn(
+                                      "absolute top-0 -translate-x-1/2",
+                                      level === 1 && "left-0 translate-x-0",
+                                      level === 5 && "left-full -translate-x-full",
+                                    )}
+                                    style={level > 1 && level < 5 ? { left: `${((level - 1) / 4) * 100}%` } : undefined}
+                                  >
+                                    {level}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             <Button
                               type="button"
@@ -670,6 +739,7 @@ export default function ProfilePage() {
                             </p>
                             <span className="shrink-0 text-sm text-muted-foreground">{entry.date}</span>
                           </div>
+                          <p className="text-xs text-muted-foreground">心情溫度 {entry.mood_temperature ?? 3} / 5</p>
                           <div className="flex flex-wrap items-center gap-2">
                             <span
                               className={cn(

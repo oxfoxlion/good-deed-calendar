@@ -21,6 +21,7 @@ type Entry = {
   content: string;
   skip_discord_notification?: boolean;
   hide_from_global_feed?: boolean;
+  mood_temperature?: number;
   date: string;
   created_at: string;
 };
@@ -28,6 +29,7 @@ type Entry = {
 type EntryOptions = {
   skip_discord_notification?: boolean;
   hide_from_global_feed?: boolean;
+  mood_temperature?: number;
 };
 
 type BadgeState = {
@@ -95,6 +97,7 @@ export function GoodDeedComposer({
   const [entryOptions, setEntryOptions] = useState<EntryOptions>({
     skip_discord_notification: false,
     hide_from_global_feed: false,
+    mood_temperature: 3,
   });
 
   const nickname = currentUser.isLoggedIn ? currentUser.nickname : guestNickname;
@@ -129,6 +132,7 @@ export function GoodDeedComposer({
     setEntryOptions({
       skip_discord_notification: false,
       hide_from_global_feed: false,
+      mood_temperature: 3,
     });
   }
 
@@ -319,6 +323,50 @@ export function GoodDeedComposer({
                   value={goodDeed}
                   onChange={(event) => setGoodDeed(event.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">心情溫度計</p>
+                <div className="rounded-2xl border border-border/70 bg-muted/40 p-3">
+                  <div className="mx-auto w-full max-w-md px-1">
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={1}
+                      dir="ltr"
+                      value={entryOptions.mood_temperature ?? 3}
+                      onChange={(event) =>
+                        setEntryOptions((currentOptions) => ({
+                          ...currentOptions,
+                          mood_temperature: Number(event.target.value),
+                        }))
+                      }
+                      className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-amber-300 to-rose-400 accent-slate-400"
+                      aria-label="心情溫度滑桿"
+                    />
+                    <div className="relative mt-2 h-4 text-xs text-muted-foreground">
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <span
+                          key={level}
+                          className={cn(
+                            "absolute top-0 -translate-x-1/2",
+                            level === 1 && "left-0 translate-x-0",
+                            level === 5 && "left-full -translate-x-full",
+                          )}
+                          style={level > 1 && level < 5 ? { left: `${((level - 1) / 4) * 100}%` } : undefined}
+                        >
+                          {level}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>低溫</span>
+                    <span>目前 {entryOptions.mood_temperature ?? 3} / 5</span>
+                    <span>高溫</span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
